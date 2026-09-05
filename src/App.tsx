@@ -5,463 +5,278 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  ActiveExperimentSession,
-  AppScreen,
-  CalculationAnswers,
-  ConceptQuestionsAnswer,
-  FinalEvaluation,
-  LabMode,
-  SavedExperimentReport,
-  StudentProfile,
-  TechniqueLog,
-  TrialData
-} from './types';
-import {
-  generateUnknownAcidConcentration,
-  STANDARD_BASE_CONCENTRATION,
-  STANDARD_SAMPLE_VOLUME
-} from './utils/chemistry';
-import { evaluateExperiment } from './utils/scoring';
-import {
-  clearActiveExperiment,
-  loadActiveExperiment,
-  loadLastReport,
-  loadStudentProfile,
-  saveActiveExperiment,
-  saveLastReport,
-  saveStudentProfile
-} from './utils/storage';
+  ExperimentProgressRecord,
+  ExperimentRegistryItem,
+  PlatformNavigationTab,
+  StudentDashboardSummary,
+  StudentUser
+} from './platform/types';
+import { AuthService } from './services/authService';
+import { ProgressService } from './services/progressService';
+import { EXPERIMENTS_REGISTRY } from './platform/experimentsRegistry';
 
-import { HomePage } from './components/views/HomePage';
-import { LearnConceptView } from './components/views/LearnConceptView';
-import { EquipmentGuideView } from './components/views/EquipmentGuideView';
-import { ModeSelectModal } from './components/views/ModeSelectModal';
-import { StudentProfileModal } from './components/views/StudentProfileModal';
-import { ExperimentBriefView } from './components/views/ExperimentBriefView';
-import { LabWorkspace } from './components/LabWorkspace';
-import { CalculationWorksheet } from './components/views/CalculationWorksheet';
-import { CurveAnalysisView } from './components/views/CurveAnalysisView';
-import { ConceptQuestionsView } from './components/views/ConceptQuestionsView';
+import { SplashScreen } from './components/platform/SplashScreen';
+import { AuthView } from './components/platform/AuthView';
+import { PlatformHeader } from './components/platform/PlatformHeader';
+import { StudentDashboard } from './components/platform/StudentDashboard';
+import { CatalogView } from './components/platform/CatalogView';
+import { ProgressView } from './components/platform/ProgressView';
+import { HistoryView } from './components/platform/HistoryView';
+import { StudentProfileView } from './components/platform/StudentProfileView';
+import { ComingSoonModal } from './components/platform/ComingSoonModal';
+import { TitrationLabModule } from './labs/acid-base-titration/TitrationLabModule';
 import { FinalReportView } from './components/views/FinalReportView';
 
 export default function App() {
-  // Check for saved active experiment session on same device/name
-  const initialActive = loadActiveExperiment();
-
-  // Screen Router - Restores directly to active step if one was in progress!
-  const [currentScreen, setCurrentScreen] = useState<AppScreen>(() => {
-    if (initialActive?.currentScreen && initialActive.currentScreen !== 'SAFETY') {
-      return initialActive.currentScreen;
-    }
-    return 'HOME';
+  // 1. Splash screen: display on initial load, dismissible
+  const [showSplash, setShowSplash] = useState<boolean>(() => {
+    // Only show splash once per session
+    return !sessionStorage.getItem('vlab_splash_seen');
   });
 
-  // Modals over current screen
-  const [showModeModal, setShowModeModal] = useState<boolean>(false);
-  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const handleDismissSplash = () => {
+    sessionStorage.setItem('vlab_splash_seen', 'true');
+    setShowSplash(false);
+  };
 
-  // Student profile & preferences
-  const [profile, setProfile] = useState<StudentProfile>(() => {
-    return (
-      initialActive?.profile ||
-      loadStudentProfile() || {
-        name: '',
-        className: 'XI MIPA 1',
-        school: 'SMA Negeri',
-        rememberMe: true
-      }
-    );
+  // 2. Authentication: check current session or local demo user
+  const [currentUser, setCurrentUser] = useState<StudentUser | null>(() => {
+    return AuthService.getCurrentUser();
   });
 
-  // Selected mode
-  const [mode, setMode] = useState<LabMode>(() => initialActive?.mode || 'guided');
+  // 3. Platform navigation & view state
+  const [currentView, setCurrentView] = useState<'PLATFORM' | 'TITRATION_LAB' | 'TITRATION_REPORT_VIEW'>('PLATFORM');
+  const [platformTab, setPlatformTab] = useState<PlatformNavigationTab>('beranda');
 
-  // Mystery unknown acid concentration (persists for the entire session of trials)
-  const [trueAcidConcentration, setTrueAcidConcentration] = useState<number>(() =>
-    initialActive?.trueAcidConcentration || generateUnknownAcidConcentration()
-  );
+  // 4. Modal for coming soon previews
+  const [selectedComingSoon, setSelectedComingSoon] = useState<ExperimentRegistryItem | null>(null);
 
-  // Experimental trials completed in the lab
-  const [trials, setTrials] = useState<TrialData[]>(() => initialActive?.trials || []);
+  // 5. Success banner state after completing an experiment
+  const [justCompletedScore, setJustCompletedScore] = useState<number | null>(null);
 
-  // Laboratory technique log
-  const [techniqueLog, setTechniqueLog] = useState<TechniqueLog>(() =>
-    initialActive?.techniqueLog || {
-      ppeComplete: true,
-      buretteMounted: (initialActive?.trials?.length ?? 0) > 0,
-      buretteRinsedWater: (initialActive?.trials?.length ?? 0) > 0,
-      buretteConditionedWithNaOH: (initialActive?.trials?.length ?? 0) > 0,
-      airBubbleChecked: (initialActive?.trials?.length ?? 0) > 0,
-      airBubbleFlushed: (initialActive?.trials?.length ?? 0) > 0,
-      pipetteFillerUsed: true,
-      sampleVolumeExact: true,
-      indicatorDropCount: 0,
-      flaskPlacedOnTile: false,
-      flaskSwirlCountTotal: 0,
-      titrationSlowedNearEndpoint: false,
-      overtitrationObserved: false,
-      meniscusReadingAttempts: 0,
-      meniscusPrecisionOk: true
-    }
-  );
+  // 6. Selected report for detailed viewing from History/Dashboard
+  const [selectedReportRecord, setSelectedReportRecord] = useState<ExperimentProgressRecord | null>(null);
 
-  // Student calculation result
-  const [calculatedConcentration, setCalculatedConcentration] = useState<number>(() =>
-    initialActive?.calculatedConcentration ?? 0.1
-  );
-  const [calculationAnswers, setCalculationAnswers] = useState<CalculationAnswers | undefined>(() =>
-    initialActive?.calculationAnswers
-  );
+  // 7. Live progress data for current student
+  const [progressSummary, setProgressSummary] = useState<StudentDashboardSummary>(() => {
+    const userId = currentUser ? currentUser.userId : 'demo-student';
+    return ProgressService.getDashboardSummary(userId);
+  });
 
-  // Concept questions answer
-  const [conceptAnswers, setConceptAnswers] = useState<ConceptQuestionsAnswer | undefined>(() =>
-    initialActive?.conceptAnswers
-  );
+  const [titrationProgress, setTitrationProgress] = useState<ExperimentProgressRecord | null>(() => {
+    const userId = currentUser ? currentUser.userId : 'demo-student';
+    return ProgressService.getExperimentProgress(userId, 'XI-06');
+  });
 
-  // Evaluation & Final Report
-  const [evaluation, setEvaluation] = useState<FinalEvaluation | null>(() =>
-    initialActive?.evaluation || null
-  );
+  const [allProgressMap, setAllProgressMap] = useState<Record<string, ExperimentProgressRecord>>(() => {
+    const userId = currentUser ? currentUser.userId : 'demo-student';
+    return ProgressService.getAllProgress(userId);
+  });
 
-  // Previous saved report for Homepage
-  const [lastReport, setLastReport] = useState<SavedExperimentReport | null>(() => loadLastReport());
+  const [historyList, setHistoryList] = useState<ExperimentProgressRecord[]>(() => {
+    const userId = currentUser ? currentUser.userId : 'demo-student';
+    return ProgressService.getHistory(userId);
+  });
 
-  // Auto-persist active session whenever state updates so accidental refreshes never lose progress!
+  // Refresh progress state whenever user changes or action completes
+  const refreshProgress = () => {
+    if (!currentUser) return;
+    setProgressSummary(ProgressService.getDashboardSummary(currentUser.userId));
+    setTitrationProgress(ProgressService.getExperimentProgress(currentUser.userId, 'XI-06'));
+    setAllProgressMap(ProgressService.getAllProgress(currentUser.userId));
+    setHistoryList(ProgressService.getHistory(currentUser.userId));
+  };
+
   useEffect(() => {
-    if (trials.length > 0 || currentScreen !== 'HOME' || profile.name) {
-      saveActiveExperiment({
-        currentScreen,
-        mode,
-        profile,
-        trueAcidConcentration,
-        trials,
-        techniqueLog,
-        calculatedConcentration,
-        calculationAnswers,
-        conceptAnswers,
-        evaluation,
-        lastUpdated: Date.now()
-      });
-    }
-  }, [
-    currentScreen,
-    mode,
-    profile,
-    trueAcidConcentration,
-    trials,
-    techniqueLog,
-    calculatedConcentration,
-    calculationAnswers,
-    conceptAnswers,
-    evaluation
-  ]);
+    refreshProgress();
+  }, [currentUser]);
 
-  // Handle student clicking "MULAI PRAKTIKUM" on Home
-  const handleStartFlow = () => {
-    setShowModeModal(true);
+  // Auth Handlers
+  const handleAuthenticated = (user: StudentUser) => {
+    setCurrentUser(user);
+    refreshProgress();
   };
 
-  // When mode is selected - directly proceeds to BRIEF without the checklist!
-  const handleSelectMode = (selectedMode: LabMode) => {
-    setMode(selectedMode);
-    setShowModeModal(false);
-    if (!profile.name) {
-      setShowProfileModal(true);
+  const handleLogout = () => {
+    AuthService.logout();
+    setCurrentUser(null);
+    setCurrentView('PLATFORM');
+  };
+
+  // Lab Navigation Handlers
+  const handleStartTitration = () => {
+    setCurrentView('TITRATION_LAB');
+  };
+
+  const handleResumeTitration = () => {
+    setCurrentView('TITRATION_LAB');
+  };
+
+  const handleReturnFromLabToDashboard = (score?: number | null) => {
+    setCurrentView('PLATFORM');
+    refreshProgress();
+    if (score !== undefined && score !== null) {
+      setJustCompletedScore(score);
+    }
+  };
+
+  // Catalog Experiment Selection
+  const handleSelectExperiment = (exp: ExperimentRegistryItem) => {
+    if (exp.status === 'available') {
+      setCurrentView('TITRATION_LAB');
     } else {
-      setCurrentScreen('BRIEF');
+      setSelectedComingSoon(exp);
     }
   };
 
-  // When profile is submitted - directly proceeds to BRIEF without the checklist!
-  const handleSaveProfile = (newProfile: StudentProfile) => {
-    setProfile(newProfile);
-    if (newProfile.rememberMe) {
-      saveStudentProfile(newProfile);
+  // View Report Handler
+  const handleViewTitrationReport = (record?: ExperimentProgressRecord) => {
+    const rec = record || titrationProgress;
+    if (rec && rec.reportData) {
+      setSelectedReportRecord(rec);
+      setCurrentView('TITRATION_REPORT_VIEW');
     }
-    setShowProfileModal(false);
-    setCurrentScreen('BRIEF');
   };
 
-  // New Experiment button (regenerates mystery concentration, cleans storage, and clears trials)
-  const handleStartNewExperiment = () => {
-    clearActiveExperiment();
-    setTrueAcidConcentration(generateUnknownAcidConcentration());
-    setTrials([]);
-    setTechniqueLog({
-      ppeComplete: true,
-      buretteMounted: false,
-      buretteRinsedWater: false,
-      buretteConditionedWithNaOH: false,
-      airBubbleChecked: false,
-      airBubbleFlushed: false,
-      pipetteFillerUsed: true,
-      sampleVolumeExact: true,
-      indicatorDropCount: 0,
-      flaskPlacedOnTile: false,
-      flaskSwirlCountTotal: 0,
-      titrationSlowedNearEndpoint: false,
-      overtitrationObserved: false,
-      meniscusReadingAttempts: 0,
-      meniscusPrecisionOk: true
-    });
-    setCalculatedConcentration(0.1);
-    setCalculationAnswers(undefined);
-    setConceptAnswers(undefined);
-    setEvaluation(null);
-    setCurrentScreen('BRIEF');
-  };
+  // ===================== RENDER ROUTING =====================
 
-  // Active session representation for HomePage status card
-  const activeSessionData: ActiveExperimentSession | null =
-    trials.length > 0 || currentScreen === 'LAB' || currentScreen === 'CALCULATION' || currentScreen === 'CURVE_ANALYSIS'
-      ? {
-          currentScreen,
-          mode,
-          profile,
-          trueAcidConcentration,
-          trials,
-          techniqueLog,
-          calculatedConcentration,
-          calculationAnswers,
-          conceptAnswers,
-          evaluation,
-          lastUpdated: Date.now()
-        }
-      : null;
+  // 1. Splash Screen
+  if (showSplash) {
+    return <SplashScreen onProceed={handleDismissSplash} />;
+  }
 
-  // Transition from Lab to Calculations
-  const handleFinishLabToCalculations = (
-    recordedTrials: TrialData[],
-    recordedTechnique: TechniqueLog
-  ) => {
-    setTrials(recordedTrials);
-    setTechniqueLog(recordedTechnique);
-    setCurrentScreen('CALCULATION');
-  };
+  // 2. Auth / Login Screen if not authenticated
+  if (!currentUser) {
+    return <AuthView onAuthenticated={handleAuthenticated} />;
+  }
 
-  // Transition from Calculations to Curve Analysis
-  const handleCalculationComplete = (
-    answersOrConc: CalculationAnswers | number,
-    maybeConc?: number
-  ) => {
-    if (typeof answersOrConc === 'number') {
-      setCalculatedConcentration(answersOrConc);
-    } else if (typeof maybeConc === 'number') {
-      setCalculationAnswers(answersOrConc);
-      setCalculatedConcentration(maybeConc);
-    } else if (answersOrConc && typeof answersOrConc === 'object') {
-      setCalculationAnswers(answersOrConc);
-      const parsed = parseFloat(answersOrConc.concentrationHCl);
-      if (!isNaN(parsed) && parsed > 0) {
-        setCalculatedConcentration(parsed);
-      }
-    }
-    setCurrentScreen('CURVE_ANALYSIS');
-  };
-
-  // Transition from Concept questions to Final Report
-  const handleConceptQuestionsComplete = (answers: ConceptQuestionsAnswer) => {
-    setConceptAnswers(answers);
-
-    // Compute final rubric scores using student's actual calculations
-    const evalResult = evaluateExperiment(
-      trueAcidConcentration,
-      calculatedConcentration,
-      trials,
-      techniqueLog,
-      calculationAnswers || {
-        avgNaOHVolume: '25.00',
-        molesNaOH: '0.0025',
-        moleRatio: '1:1',
-        molesHCl: '0.0025',
-        concentrationHCl: calculatedConcentration.toFixed(4),
-        isSubmitted: true,
-        scores: {
-          avgVolumeCorrect: true,
-          molesNaOHCorrect: true,
-          moleRatioCorrect: true,
-          molesHClCorrect: true,
-          concentrationCorrect: true
-        }
-      },
-      techniqueLog.ppeComplete
+  // 3. Titration Lab Active Workspace
+  if (currentView === 'TITRATION_LAB') {
+    return (
+      <TitrationLabModule
+        user={currentUser}
+        onReturnToDashboard={handleReturnFromLabToDashboard}
+        initialStartScreen="BRIEF"
+      />
     );
+  }
 
-    setEvaluation(evalResult);
-
-    const accurateTrials = trials.filter((t) => !t.isRough);
-    const avgTitre =
-      accurateTrials.length > 0
-        ? accurateTrials.reduce((a, b) => a + b.deliveredVolume, 0) / accurateTrials.length
-        : 0;
-
-    // Persist completed experiment report
-    const reportData: SavedExperimentReport = {
-      id: `report-${Date.now()}`,
-      student: profile,
-      mode,
-      timestamp: new Date().toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      }),
-      trials,
-      trueAcidConcentration,
-      calculatedConcentration,
-      percentError: evalResult.percentError,
-      concordantTrials: accurateTrials.map((t) => t.title),
-      averageTitre: Number(avgTitre.toFixed(2)),
-      scores: evalResult,
-      feedbackNotes: evalResult.feedbackNotes
-    };
-
-    saveLastReport(reportData);
-    setLastReport(reportData);
-    setCurrentScreen('FINAL_REPORT');
-  };
-
-  return (
-    <div className="min-h-screen bg-[#F9F7F2] text-[#1D1D1B] font-sans selection:bg-[#1D1D1B] selection:text-[#F9F7F2]">
-      {/* 1. HOME SCREEN */}
-      {currentScreen === 'HOME' && (
-        <HomePage
-          lastReport={lastReport}
-          activeSession={activeSessionData}
-          onStart={handleStartFlow}
-          onResumeActive={() => {
-            if (trials.length > 0) {
-              setCurrentScreen('LAB');
-            } else {
-              setCurrentScreen('BRIEF');
-            }
-          }}
-          onStartNew={handleStartNewExperiment}
-          onLearnConcept={() => setCurrentScreen('LEARN_CONCEPT')}
-          onEquipmentGuide={() => setCurrentScreen('EQUIPMENT_GUIDE')}
-          onViewLastReport={() => {
-            if (lastReport) {
-              setProfile(lastReport.student);
-              setMode(lastReport.mode);
-              setTrials(lastReport.trials);
-              setCalculatedConcentration(lastReport.calculatedConcentration);
-              setEvaluation(lastReport.scores);
-              setCurrentScreen('FINAL_REPORT');
-            }
-          }}
-        />
-      )}
-
-      {/* 2. LEARN CONCEPT VIEW */}
-      {currentScreen === 'LEARN_CONCEPT' && (
-        <LearnConceptView
-          onBack={() => setCurrentScreen('HOME')}
-          onStartLab={handleStartFlow}
-        />
-      )}
-
-      {/* 3. EQUIPMENT GUIDE VIEW */}
-      {currentScreen === 'EQUIPMENT_GUIDE' && (
-        <EquipmentGuideView
-          onBack={() => setCurrentScreen('HOME')}
-          onStartLab={handleStartFlow}
-        />
-      )}
-
-      {/* 4. EXPERIMENT BRIEF VIEW (Safety checklist bypassed as requested) */}
-      {currentScreen === 'BRIEF' && (
-        <ExperimentBriefView
-          profile={profile}
-          mode={mode}
-          onStartExperiment={() => setCurrentScreen('LAB')}
-          onBack={() => setCurrentScreen('HOME')}
-        />
-      )}
-
-      {/* 5. LAB WORKSPACE VIEW */}
-      {currentScreen === 'LAB' && (
-        <LabWorkspace
-          profile={profile}
-          mode={mode}
-          trueAcidConcentration={trueAcidConcentration}
-          initialTrials={trials}
-          initialTechniqueLog={techniqueLog}
-          onTrialsUpdate={(updatedTrials, updatedTechnique) => {
-            setTrials(updatedTrials);
-            setTechniqueLog(updatedTechnique);
-          }}
-          onFinishToCalculations={handleFinishLabToCalculations}
-          onHome={() => setCurrentScreen('HOME')}
-          onNewExperiment={handleStartNewExperiment}
-        />
-      )}
-
-      {/* 7. CALCULATION WORKSHEET VIEW */}
-      {currentScreen === 'CALCULATION' && (
-        <CalculationWorksheet
-          trials={trials}
-          trueAcidConcentration={trueAcidConcentration}
-          standardBaseConcentration={STANDARD_BASE_CONCENTRATION}
-          sampleVolumeMl={STANDARD_SAMPLE_VOLUME}
-          initialAnswers={calculationAnswers}
-          onComplete={handleCalculationComplete}
-          onContinue={handleCalculationComplete}
-          onBackToLab={() => setCurrentScreen('LAB')}
-          onBack={() => setCurrentScreen('LAB')}
-        />
-      )}
-
-      {/* 8. CURVE ANALYSIS VIEW */}
-      {currentScreen === 'CURVE_ANALYSIS' && (
-        <CurveAnalysisView
-          trials={trials}
-          trueAcidConcentration={trueAcidConcentration}
-          calculatedConcentration={calculatedConcentration}
-          onContinue={() => setCurrentScreen('CONCEPT_QUESTIONS')}
-          onBack={() => setCurrentScreen('CALCULATION')}
-        />
-      )}
-
-      {/* 9. CONCEPT QUESTIONS VIEW */}
-      {currentScreen === 'CONCEPT_QUESTIONS' && (
-        <ConceptQuestionsView
-          onComplete={handleConceptQuestionsComplete}
-          onBack={() => setCurrentScreen('CURVE_ANALYSIS')}
-        />
-      )}
-
-      {/* 10. FINAL REPORT VIEW */}
-      {currentScreen === 'FINAL_REPORT' && evaluation && (
+  // 4. Standalone Titration Report View (from History or Dashboard)
+  if (currentView === 'TITRATION_REPORT_VIEW' && selectedReportRecord?.reportData) {
+    const rep = selectedReportRecord.reportData;
+    return (
+      <div className="min-h-screen bg-[#F9F7F2] text-[#1D1D1B] py-6 px-4 selection:bg-[#1D1D1B] selection:text-[#F9F7F2]">
+        <div className="max-w-4xl mx-auto mb-4">
+          <button
+            onClick={() => setCurrentView('PLATFORM')}
+            className="px-4 py-2 bg-white hover:bg-[#F4EFE6] border border-[#1D1D1B] text-xs font-mono font-bold uppercase tracking-wider text-[#1D1D1B] shadow-[2px_2px_0px_#1D1D1B] transition cursor-pointer"
+          >
+            ← Kembali ke Dashboard V-Lab
+          </button>
+        </div>
         <FinalReportView
-          profile={profile}
-          mode={mode}
-          trials={trials}
-          evaluation={evaluation}
-          onRestart={handleStartNewExperiment}
-          onSwitchMode={() => {
-            setMode(mode === 'guided' ? 'challenge' : 'guided');
-            handleStartNewExperiment();
+          profile={rep.student}
+          mode={rep.mode}
+          trials={rep.trials}
+          evaluation={rep.scores}
+          onRestart={() => {
+            setCurrentView('TITRATION_LAB');
           }}
-          onHome={() => setCurrentScreen('HOME')}
+          onSwitchMode={() => {
+            setCurrentView('TITRATION_LAB');
+          }}
+          onHome={() => setCurrentView('PLATFORM')}
         />
-      )}
+      </div>
+    );
+  }
 
-      {/* MODAL: MODE SELECT */}
-      {showModeModal && (
-        <ModeSelectModal
-          onSelectMode={handleSelectMode}
-          onClose={() => setShowModeModal(false)}
-        />
-      )}
+  // 5. Main Platform Shell (Dashboard, Catalog, Progress, History, Profile)
+  return (
+    <div className="min-h-screen bg-[#F9F7F2] text-[#1D1D1B] flex flex-col selection:bg-[#1D1D1B] selection:text-[#F9F7F2]">
+      {/* Platform Top Header */}
+      <PlatformHeader
+        user={currentUser}
+        activeTab={platformTab}
+        onTabChange={setPlatformTab}
+        onLogout={handleLogout}
+      />
 
-      {/* MODAL: STUDENT PROFILE INPUT */}
-      {showProfileModal && (
-        <StudentProfileModal
-          initialProfile={profile}
-          onSave={handleSaveProfile}
-          onClose={() => setShowProfileModal(false)}
-        />
-      )}
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {platformTab === 'beranda' && (
+          <StudentDashboard
+            user={currentUser}
+            summary={progressSummary}
+            titrationProgress={titrationProgress}
+            onNavigateTab={setPlatformTab}
+            onStartTitration={handleStartTitration}
+            onResumeTitration={handleResumeTitration}
+            onSelectExperiment={handleSelectExperiment}
+            onViewReport={() => handleViewTitrationReport()}
+            justCompletedScore={justCompletedScore}
+            onDismissCompletionNotice={() => setJustCompletedScore(null)}
+          />
+        )}
+
+        {platformTab === 'katalog' && (
+          <CatalogView
+            userGrade={currentUser.grade}
+            progressMap={allProgressMap}
+            onSelectExperiment={handleSelectExperiment}
+          />
+        )}
+
+        {platformTab === 'progres' && (
+          <ProgressView
+            summary={progressSummary}
+            titrationProgress={titrationProgress}
+            onGoToLab={handleStartTitration}
+          />
+        )}
+
+        {platformTab === 'riwayat' && (
+          <HistoryView
+            historyRecords={historyList}
+            onViewReport={handleViewTitrationReport}
+            onRepeatExperiment={() => handleStartTitration()}
+            onGoToCatalog={() => setPlatformTab('katalog')}
+          />
+        )}
+
+        {platformTab === 'profil' && (
+          <StudentProfileView
+            user={currentUser}
+            onUpdateUser={(updated) => {
+              setCurrentUser(updated);
+              refreshProgress();
+            }}
+          />
+        )}
+      </main>
+
+      {/* Platform Academic Footer */}
+      <footer className="border-t border-[#1D1D1B]/20 bg-[#F4EFE6] py-6 px-4 text-xs font-mono text-[#1D1D1B]/70">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <p className="font-bold text-[#1D1D1B]">V-LAB KIMIA SMA</p>
+            <p className="text-[11px] text-[#1D1D1B]/60">
+              Laboratorium Kimia Virtual Kelas X, XI, dan XII • Standar Analis Kimia Kuantitatif
+            </p>
+          </div>
+          <div className="flex items-center gap-4 text-[11px]">
+            <span>Kurikulum Kimia SMA</span>
+            <span>•</span>
+            <span>Versi 2.0 Platform</span>
+          </div>
+        </div>
+      </footer>
+
+      {/* Coming Soon Preview Modal */}
+      <ComingSoonModal
+        experiment={selectedComingSoon}
+        onClose={() => setSelectedComingSoon(null)}
+      />
     </div>
   );
 }
-

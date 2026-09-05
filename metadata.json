@@ -1,6 +1,6 @@
 {
-  "name": "V-Lab Kimia - Titrasi Asam–Basa",
-  "description": "Laboratorium virtual titrasi asam–basa interaktif SMA/MA untuk menentukan konsentrasi HCl menggunakan titran NaOH dan indikator fenolftalein.",
+  "name": "V-LAB KIMIA SMA",
+  "description": "Laboratorium Kimia Virtual Kelas X, XI, dan XII - Belajar Kimia dengan Melakukan Eksperimen.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
