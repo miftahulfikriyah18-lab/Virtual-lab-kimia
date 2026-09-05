@@ -846,9 +846,9 @@ export const LabWorkspace: React.FC<LabWorkspaceProps> = ({
         </aside>
 
         {/* === CENTER: MAIN LABORATORY BENCH (58% - LARGEST AREA) === */}
-        <main className="flex-1 flex flex-col bg-white/98 vlab-simulation-bench relative overflow-hidden">
-          {/* Solid 97% white laboratory bench backdrop for crystal-clear burette and meniscus readability */}
-          <div className="absolute inset-0 bg-white/97 pointer-events-none" />
+        <main className="flex-1 flex flex-col bg-[#F4EFE6] relative overflow-hidden">
+          {/* Subtle laboratory bench backdrop with monograph clean styling */}
+          <div className="absolute inset-0 bg-[#F4EFE6] pointer-events-none" />
           <div className="absolute bottom-0 left-0 right-0 h-44 bg-gradient-to-t from-[#EAE4D7] to-transparent pointer-events-none border-b-8 border-[#1D1D1B]/25" />
 
           {/* Central Glassware Stage */}

@@ -93,7 +93,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-[#1D1D1B] flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-[#1D1D1B] selection:text-[#F9F7F2]">
+    <div className="min-h-screen bg-[#F9F7F2] text-[#1D1D1B] flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-[#1D1D1B] selection:text-[#F9F7F2]">
       {/* Container card */}
       <div className="w-full max-w-md bg-white border border-[#1D1D1B] shadow-[6px_6px_0px_#1D1D1B] p-6 sm:p-8 relative">
         {/* Top Emblem & Brand */}

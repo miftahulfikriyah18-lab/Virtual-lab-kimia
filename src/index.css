@@ -2,9 +2,13 @@
 
 @layer base {
   body {
-    background-color: #F9F7F2;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: #0c2131;
     color: #1D1D1B;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    position: relative;
   }
   h1, h2, h3, .font-serif {
     font-family: 'Newsreader', Georgia, Cambria, 'Times New Roman', serif;
@@ -12,6 +16,110 @@
   code, kbd, samp, pre, .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
+}
+
+/* ==========================================================================
+   V-LAB KIMIA SMA - BACKGROUND & FROSTED GLASS SHELL
+   ========================================================================== */
+
+/* 1. Full-page fixed laboratory background */
+.vlab-bg-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  z-index: -20;
+  pointer-events: none;
+  background-image: url('/lab-background.jpg');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* 2. Dark Navy / Teal Overlay reduced to 10–15% opacity (12%) */
+.vlab-bg-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -10;
+  pointer-events: none;
+  background: rgba(10, 25, 40, 0.12);
+}
+
+/* 3. Outer spacing wrapper: transparent and non-solid */
+.vlab-app-canvas {
+  min-height: 100vh;
+  width: 100%;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  position: relative;
+  background: transparent !important;
+}
+
+/* 4. Main semi-transparent white frosted glass panel (as requested) */
+.vlab-frosted-panel {
+  width: calc(100% - 24px);
+  margin: 14px auto;
+  max-width: 1440px;
+  background: rgba(245, 247, 248, 0.72);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 24px;
+  box-shadow: 0 24px 70px rgba(8, 30, 45, 0.25);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .vlab-frosted-panel {
+    width: calc(100% - 48px);
+    margin: 22px auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .vlab-frosted-panel {
+    width: calc(100% - 96px);
+    max-width: 1440px;
+    margin: 36px auto;
+  }
+}
+
+/* 5. Simulation bench solid panel (96-98% opacity for crystal clear burette & meniscus readability) */
+.vlab-simulation-bench {
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  backdrop-filter: none !important;
+}
+
+/* 6. Header and Footer subtle styling to preserve translucent frosted aesthetic without hiding background */
+.vlab-frosted-panel header {
+  background-color: rgba(249, 247, 242, 0.82) !important;
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+.vlab-frosted-panel footer {
+  background-color: rgba(244, 239, 230, 0.65) !important;
+}
+
+/* 7. Ensure translucent wrapper doesn't have child screens blocking the frosted effect with opaque beige */
+.vlab-frosted-panel > .vlab-translucent-screen,
+.vlab-frosted-panel > div.min-h-screen,
+.vlab-frosted-panel > div > div.min-h-screen {
+  background-color: transparent !important;
+  min-height: 100% !important;
+  flex: 1 1 auto;
 }
 
 /* Custom scrollbar matching editorial aesthetic */

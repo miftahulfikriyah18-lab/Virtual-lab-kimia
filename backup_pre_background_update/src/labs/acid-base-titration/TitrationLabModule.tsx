@@ -364,9 +364,9 @@ export const TitrationLabModule: React.FC<TitrationLabModuleProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-[#1D1D1B] font-sans selection:bg-[#1D1D1B] selection:text-[#F9F7F2] relative">
+    <div className="min-h-screen bg-[#F9F7F2] text-[#1D1D1B] font-sans selection:bg-[#1D1D1B] selection:text-[#F9F7F2] relative">
       {/* Top Floating Dashboard Return Bar (Clean & unobtrusive for lab workspace) */}
-      <div className="no-print sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#1D1D1B]/20 px-4 py-2 flex items-center justify-between text-xs font-mono">
+      <div className="no-print sticky top-0 z-30 bg-[#F9F7F2]/95 backdrop-blur-xs border-b border-[#1D1D1B]/20 px-4 py-2 flex items-center justify-between text-xs font-mono">
         <button
           onClick={handleRequestExit}
           className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-[#F4EFE6] border border-[#1D1D1B] text-[#1D1D1B] text-[11px] font-bold uppercase tracking-wider shadow-[2px_2px_0px_#1D1D1B] transition cursor-pointer"

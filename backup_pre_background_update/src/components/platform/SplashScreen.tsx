@@ -15,7 +15,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onProceed }) => {
   }, [onProceed]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-transparent text-[#1D1D1B] px-6 selection:bg-[#1D1D1B] selection:text-[#F9F7F2]">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F9F7F2] text-[#1D1D1B] px-6 selection:bg-[#1D1D1B] selection:text-[#F9F7F2]">
       {/* Background scientific grid watermark */}
       <div
         className="absolute inset-0 pointer-events-none opacity-20"
@@ -28,7 +28,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onProceed }) => {
       />
 
       {/* Center Scientific Seal and Branding */}
-      <div className="relative z-10 max-w-lg w-full flex flex-col items-center text-center animate-fadeIn bg-white/95 backdrop-blur-md p-8 sm:p-10 border border-[#1D1D1B] shadow-[8px_8px_0px_#1D1D1B]">
+      <div className="relative z-10 max-w-lg w-full flex flex-col items-center text-center animate-fadeIn">
         {/* Lab Emblem */}
         <div className="w-20 h-20 mb-8 border border-[#1D1D1B] bg-white flex items-center justify-center shadow-[4px_4px_0px_#1D1D1B] transition-transform">
           <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#1D1D1B]" fill="none" stroke="currentColor">
